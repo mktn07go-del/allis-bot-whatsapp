@@ -207,7 +207,6 @@ const client = new Client({
             '--single-process',
             '--disable-gpu'
         ],
-        executablePath: process.env.RENDER ? '/usr/bin/google-chrome' : undefined
     }
 });
 
