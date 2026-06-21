@@ -191,14 +191,31 @@ const avanzarPersonalizacion = (sesion, message) => {
 };
 
 // ==========================================
-// 4. INICIALIZACIÓN DEL BOT
+// 4. INICIALIZACIÓN DEL BOT Y PUPPETEER (RENDER)
 // ==========================================
 const client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+    puppeteer: {
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu'
+        ],
+        executablePath: process.env.RENDER ? '/usr/bin/google-chrome' : undefined
+    }
 });
 
-client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
+client.on('qr', (qr) => {
+    console.log('¡Escanea este QR con tu WhatsApp!');
+    qrcode.generate(qr, { small: true });
+});
+
 client.on('ready', async () => {
     console.log('✅ BOT LISTO.');
     await cargarDatosFirebase();
@@ -221,10 +238,6 @@ const estaAbierto = () => {
     const dia = ahora.getDay(); // 0=Dom, 1=Lun, ..., 3=Mie
     const hora = ahora.getHours();
     
-    // Si elegiste Horario B (Abierto 24/7)
-    // return true; 
-
-    // Lógica para Horario A: Mié(3) a Dom(0) de 15:00 a 22:00
     if (dia === 1 || dia === 2) return false; // Lunes y Martes cerrado
     if (hora >= 15 && hora < 22) return true;
     
@@ -232,10 +245,18 @@ const estaAbierto = () => {
 };
 
 client.on('message', async (message) => {
+    // Ignorar mensajes de grupos o estados
+    if (message.isGroupMsg || message.isStatus) return;
+
+    // Declaración de variables clave que faltaban
+    const telefono = message.from;
+    const texto = message.body || '';
+    const textoLower = texto.toLowerCase();
+
     // NUEVA VALIDACIÓN DE HORARIO
     if (!estaAbierto()) {
         message.reply("👋 ¡Hola! Gracias por escribir a Alli's Restaurante.\n\nActualmente estamos cerrados. Nuestro horario de atención es de Miércoles a Domingo de 3:00 PM a 10:00 PM. 🕒\n\nDéjanos tu pedido y un colaborador te atenderá en cuanto abramos. 🍔");
-        return; // El bot no sigue procesando nada más
+        return; 
     }
 
     const sesion = obtenerSesion(telefono);
@@ -243,6 +264,11 @@ client.on('message', async (message) => {
 
     try {
         switch (sesion.paso) {
+            case 'INICIO':
+                message.reply("👋 ¡Hola! Bienvenido a *Alli's Restaurante*.\n\nPara comenzar, ¿cuál es tu nombre?");
+                sesion.paso = 'ESPERANDO_NOMBRE';
+                break;
+
             case 'ESPERANDO_NOMBRE':
                 sesion.nombre = texto;
                 message.reply(`¡Un gusto, ${sesion.nombre}! 👨‍🍳\n\n¿Qué te gustaría hacer hoy?\n\n*1.* 🍔 Ver Menú y Ordenar\n*2.* 📞 Hablar con un humano`);
