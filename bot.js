@@ -3,6 +3,19 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const { initializeApp } = require('firebase/app');
 const { getFirestore, collection, getDocs, addDoc } = require('firebase/firestore');
+const http = require('http');
+
+// ==========================================
+// 0. SERVIDOR FANTASMA PARA ENGAÑAR A RENDER
+// ==========================================
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot de Alli\'s Restaurante funcionando correctamente 🚀\n');
+});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`🌐 Puerto ${PORT} abierto. Render ya no apagará el bot.`);
+});
 
 // ==========================================
 // 1. CONFIGURACIÓN DE FIREBASE
@@ -86,7 +99,6 @@ const cargarDatosFirebase = async () => {
                 const data = doc.data();
                 if (data.disponible !== false) {
                     const tipo = (data.tipo || '').toLowerCase();
-                    // Leer la columna picor y crear emojis
                     const picorNum = parseInt(data.picor) || 0;
                     const picorStr = picorNum > 0 ? ' 🌶️'.repeat(picorNum) : '';
                     const nombreConPicor = data.nombre + picorStr;
@@ -140,7 +152,6 @@ const avanzarPersonalizacion = (sesion, message) => {
             let numSalsaActual = op.salsasElegidas.length + 1;
             let msg = "¿Qué *salsa* prefieres?\n\n";
             
-            // Texto adaptado para Mitad y Mitad
             if (op.proteina === 'Mitad y Mitad') {
                 msg = numSalsaActual === 1 
                     ? "¿Qué salsa quieres para la *PRIMERA MITAD (Alitas)*?\n\n"
@@ -173,7 +184,7 @@ const avanzarPersonalizacion = (sesion, message) => {
     const precioFinal = varSel ? varSel.precio : ((p.precioDescuento || 0) > 0 ? p.precioDescuento : p.precio);
     
     let stringSalsas = (op.salsasElegidas && op.salsasElegidas.length > 0) ? op.salsasElegidas.join(' y ') : null;
-    let cantFinal = op.cantidad || 1; // Toma la cantidad si se eligió bebida
+    let cantFinal = op.cantidad || 1; 
 
     sesion.carrito.push({
         idCarrito: Date.now(), idProducto: p.id, nombre: p.nombre,
@@ -191,7 +202,7 @@ const avanzarPersonalizacion = (sesion, message) => {
 };
 
 // ==========================================
-// 4. INICIALIZACIÓN DEL BOT Y PUPPETEER (RENDER)
+// 4. INICIALIZACIÓN DEL BOT Y PUPPETEER
 // ==========================================
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -206,7 +217,7 @@ const client = new Client({
             '--no-zygote',
             '--single-process',
             '--disable-gpu'
-        ],
+        ]
     }
 });
 
@@ -231,28 +242,24 @@ const parsearOpcion = (texto, arrayOpciones) => {
     return index;
 };
 
-// Función para verificar si el restaurante está abierto
 const estaAbierto = () => {
     const ahora = new Date();
-    const dia = ahora.getDay(); // 0=Dom, 1=Lun, ..., 3=Mie
+    const dia = ahora.getDay(); 
     const hora = ahora.getHours();
     
-    if (dia === 1 || dia === 2) return false; // Lunes y Martes cerrado
+    if (dia === 1 || dia === 2) return false; 
     if (hora >= 15 && hora < 22) return true;
     
     return false;
 };
 
 client.on('message', async (message) => {
-    // Ignorar mensajes de grupos o estados
     if (message.isGroupMsg || message.isStatus) return;
 
-    // Declaración de variables clave que faltaban
     const telefono = message.from;
     const texto = message.body || '';
     const textoLower = texto.toLowerCase();
 
-    // NUEVA VALIDACIÓN DE HORARIO
     if (!estaAbierto()) {
         message.reply("👋 ¡Hola! Gracias por escribir a Alli's Restaurante.\n\nActualmente estamos cerrados. Nuestro horario de atención es de Miércoles a Domingo de 3:00 PM a 10:00 PM. 🕒\n\nDéjanos tu pedido y un colaborador te atenderá en cuanto abramos. 🍔");
         return; 
@@ -454,7 +461,6 @@ client.on('message', async (message) => {
                     resumenItems += `\n🛵 Costo de Envío: $10.00\n`;
                 }
 
-                // COMISIÓN DEL 5% SI ES TERMINAL
                 if (sesion.metodoPago === 'Terminal') {
                     const comision = total * 0.05;
                     total += comision;
